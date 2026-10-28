@@ -15,7 +15,7 @@ ADMIN_PASSWORD=choose-something-strong npm start   # http://localhost:3000
 | ---------------- | -------------- | -------------------------------------------------------- |
 | `PORT`           | `3000`         | HTTP port                                                |
 | `ADMIN_PASSWORD` | random per run | Staff dashboard password (printed on start if unset)     |
-| `TRUST_PROXY`    | `loopback`     | Set to `1` behind a hosting proxy (Railway, cPanel)      |
+| `TRUST_PROXY`    | `loopback`     | Set to `1` behind a hosting proxy such as cPanel         |
 | `BASE_PATH`      | (empty)        | Serve under a sub-path, e.g. `/cafe` for example.com/cafe/ |
 | `TZ`             | system         | Café time zone; pickup slots and hours are checked in it |
 | `DB_PATH`        | `data/cafe.db` | SQLite file; created and seeded with the menu on first run |
@@ -44,32 +44,6 @@ Other scripts: `npm run dev` (auto-restart), `npm test` (API tests against an in
 - **Payments and email** aren't wired up. Orders are pay-at-pickup and messages land in the dashboard inbox. The natural next steps are Stripe Checkout in `POST /api/orders` and a transactional email provider for confirmations.
 - **Images:** menu cards use line illustrations as placeholders. Swap them for real photos in `public/js/art.js`.
 - **Production elsewhere:** run it behind a TLS-terminating reverse proxy and set `TRUST_PROXY=1` so rate limiting sees real client IPs and cookies get `Secure`.
-
-## Deploy to Railway
-
-Railway builds the included `Dockerfile` using the settings in `railway.toml`. The SQLite database lives on a Railway volume mounted at `/data`. A service with a volume runs as a single instance, which is what this app needs: SQLite and staff sessions don't share across instances.
-
-```bash
-npm i -g @railway/cli
-railway login
-railway init                               # create a project
-railway add --service hearth-and-crumb     # create an empty service and link it
-railway volume add --mount-path /data
-railway variables \
-  --set "ADMIN_PASSWORD=something-long-and-random" \
-  --set "TZ=America/New_York" \
-  --set "TRUST_PROXY=1"
-railway up                                 # build and deploy from this folder
-railway domain                             # generate a public *.up.railway.app URL
-```
-
-Every step can also be done in the dashboard. Railway sets `PORT` itself, and the app reads it. The menu is seeded on first boot.
-
-- **Auto-deploy from GitHub:** connect the repo to the service in the dashboard, and each push to the main branch deploys.
-- **Custom domain:** in the service's *Settings → Networking*, add your domain and create the CNAME it shows.
-- **Backups:** enable volume backups in the service's volume settings. **Ship them off-site too:** losing the volume means losing every order and message.
-- **Reset the menu:** `railway ssh` into the service and run `node db.js --reset`. This wipes **all** data, including orders.
-- **Logs:** `railway logs`.
 
 ## Deploy to cPanel
 
@@ -105,6 +79,4 @@ app.cjs            Passenger (cPanel) startup file
 db.js              Schema, seed data, `--reset`
 public/            Static site (index, menu, order, contact, admin + css/js)
 test/api.test.js   node:test suite covering the API
-Dockerfile         Production image (Node 24, DB on /data)
-railway.toml       Railway build/deploy config
 ```

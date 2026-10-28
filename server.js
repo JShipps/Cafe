@@ -105,7 +105,7 @@ export function createApp({
   const router = express.Router();
 
   app.disable('x-powered-by');
-  // Behind a hosting proxy (e.g. Railway) set TRUST_PROXY=1 so req.ip and req.secure reflect the real client.
+  // Behind a hosting proxy (e.g. cPanel/Passenger) set TRUST_PROXY=1 so req.ip and req.secure reflect the real client.
   const trustProxy = process.env.TRUST_PROXY ?? 'loopback';
   app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
   app.use(express.json({ limit: '20kb' }));
