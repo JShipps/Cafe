@@ -1,4 +1,4 @@
-import { api, esc, money, cart, getInfo, formatPickup, toast } from '/js/common.js';
+import { api, esc, money, cart, getInfo, formatPickup, toast } from './common.js';
 
 const menuEl = document.getElementById('menu');
 const chipsEl = document.getElementById('chips');
@@ -145,7 +145,7 @@ form.addEventListener('submit', async (e) => {
 function showConfirmation(order) {
   document.getElementById('cart-view').hidden = true;
   const view = document.getElementById('confirm-view');
-  const trackUrl = `/order?code=${encodeURIComponent(order.code)}&email=${encodeURIComponent(order.email)}`;
+  const trackUrl = `order?code=${encodeURIComponent(order.code)}&email=${encodeURIComponent(order.email)}`;
   view.innerHTML = `
     <div class="eyebrow">Order received</div>
     <h2>Thanks, ${esc(order.name.split(' ')[0])}!</h2>

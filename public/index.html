@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Hearth &amp; Crumb — Café &amp; Bakery</title>
   <meta name="description" content="Neighbourhood café and scratch bakery on Maple Street. Sourdough, croissants, specialty coffee and custom cakes. Order ahead for pickup.">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <header id="site-header"></header>
@@ -22,8 +22,8 @@
           <h1>Baked before sunrise. <em>Brewed</em> to order.</h1>
           <p class="lede">Hearth &amp; Crumb is your neighbourhood bakery on Maple Street — naturally leavened bread, butter-laminated pastry and coffee from roasters down the road.</p>
           <div class="actions">
-            <a class="btn accent" href="/menu#order">Order ahead for pickup</a>
-            <a class="btn secondary" href="/menu">See the menu</a>
+            <a class="btn accent" href="menu#order">Order ahead for pickup</a>
+            <a class="btn secondary" href="menu">See the menu</a>
           </div>
         </div>
         <div class="hero-art">
@@ -47,7 +47,7 @@
             <div class="eyebrow">Fresh this week</div>
             <h2>Neighbourhood favourites</h2>
           </div>
-          <a class="btn secondary small" href="/menu">Full menu →</a>
+          <a class="btn secondary small" href="menu">Full menu →</a>
         </div>
         <div class="grid-3" id="featured" aria-live="polite"></div>
       </div>
@@ -80,7 +80,7 @@
             <h2>Custom cakes &amp; catering</h2>
             <p>Birthday layer cakes, wedding dessert tables, and morning pastry platters for the office. Give us 48 hours and we'll make it special.</p>
           </div>
-          <a class="btn accent" href="/contact">Start an inquiry</a>
+          <a class="btn accent" href="contact">Start an inquiry</a>
         </div>
       </div>
     </section>
@@ -106,8 +106,8 @@
   <footer id="site-footer"></footer>
 
   <script type="module">
-    import { api, esc, money, getInfo, hoursRows, isOpenNow, formatHour } from '/js/common.js';
-    import { categoryArt } from '/js/art.js';
+    import { api, esc, money, getInfo, hoursRows, isOpenNow, formatHour } from './js/common.js';
+    import { categoryArt } from './js/art.js';
 
     getInfo().then((info) => {
       document.getElementById('hours').innerHTML = hoursRows(info.hours);

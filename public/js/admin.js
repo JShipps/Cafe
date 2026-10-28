@@ -1,4 +1,4 @@
-import { api, esc, money, formatPickup, LOGO_SVG, toast } from '/js/common.js';
+import { api, esc, money, formatPickup, LOGO_SVG, toast } from './common.js';
 
 const $ = (id) => document.getElementById(id);
 const STATUS_LABELS = { received: 'Received', preparing: 'Preparing', ready: 'Ready', picked_up: 'Picked up', cancelled: 'Cancelled' };

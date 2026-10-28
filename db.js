@@ -57,6 +57,12 @@ const SCHEMA = `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- Admin sessions live here (not in memory) so every app process shares them.
+  CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    expires_at INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS subscribers (
     email      TEXT PRIMARY KEY,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -126,9 +132,12 @@ const SEED = [
 export function openDb(path = process.env.DB_PATH || 'data/cafe.db') {
   if (path !== ':memory:') mkdirSync(dirname(resolve(path)), { recursive: true });
   const db = new DatabaseSync(path);
+  // Several processes may share the file (e.g. Passenger on cPanel): WAL lets readers and a writer
+  // work concurrently, and busy_timeout waits for a lock instead of failing immediately.
+  db.exec('PRAGMA busy_timeout = 5000');
+  if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL');
   db.exec(SCHEMA);
-  const { n } = db.prepare('SELECT COUNT(*) AS n FROM categories').get();
-  if (n === 0) seed(db);
+  seed(db);
   return db;
 }
 
@@ -137,7 +146,12 @@ function seed(db) {
   const addItem = db.prepare(
     'INSERT INTO menu_items (category_id, name, description, price_cents, tags, featured) VALUES (?, ?, ?, ?, ?, ?)'
   );
-  db.exec('BEGIN');
+  // IMMEDIATE takes the write lock up front, so two processes starting together can't both seed.
+  db.exec('BEGIN IMMEDIATE');
+  if (db.prepare('SELECT COUNT(*) AS n FROM categories').get().n > 0) {
+    db.exec('ROLLBACK');
+    return;
+  }
   SEED.forEach((cat, i) => {
     const { lastInsertRowid } = addCat.run(cat.name, cat.slug, cat.blurb, i);
     for (const [name, desc, price, tags, featured] of cat.items) {

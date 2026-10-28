@@ -1,6 +1,8 @@
 import express from 'express';
 import { randomBytes, randomInt, timingSafeEqual, createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync } from 'node:fs';
+import { parseEnv } from 'node:util';
 import { openDb } from './db.js';
 
 export const CAFE = {
@@ -84,14 +86,28 @@ function parseCookies(header = '') {
 
 const sha256 = (s) => createHash('sha256').update(s).digest();
 
-export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_000, max: 30 } }) {
+/** Normalizes a mount path like "cafe/" to "/cafe"; empty means the site is at the domain root. */
+export function normalizeBasePath(value = '') {
+  const trimmed = value.trim().replace(/^\/+|\/+$/g, '');
+  return trimmed ? `/${trimmed}` : '';
+}
+
+export function createApp({
+  db,
+  adminPassword,
+  basePath = '',
+  rateLimit = { windowMs: 10 * 60_000, max: 30 },
+}) {
+  basePath = normalizeBasePath(basePath);
   if (!adminPassword) throw new Error('adminPassword is required');
   const app = express();
-  const sessions = new Map(); // token -> expiry timestamp
   const limit = rateLimiter(rateLimit);
+  const router = express.Router();
 
   app.disable('x-powered-by');
-  app.set('trust proxy', 'loopback');
+  // Behind a hosting proxy (e.g. Railway) set TRUST_PROXY=1 so req.ip and req.secure reflect the real client.
+  const trustProxy = process.env.TRUST_PROXY ?? 'loopback';
+  app.set('trust proxy', /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
   app.use(express.json({ limit: '20kb' }));
   app.use((req, res, next) => {
     res.set({
@@ -104,11 +120,11 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
 
   // ---------- Public API ----------
 
-  app.get('/api/info', (req, res) => {
+  router.get('/api/info', (req, res) => {
     res.json(CAFE);
   });
 
-  app.get('/api/menu', (req, res) => {
+  router.get('/api/menu', (req, res) => {
     const categories = db.prepare('SELECT id, name, slug, blurb FROM categories ORDER BY sort, id').all();
     const items = db
       .prepare(
@@ -124,7 +140,7 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     );
   });
 
-  app.get('/api/menu/featured', (req, res) => {
+  router.get('/api/menu/featured', (req, res) => {
     const items = db
       .prepare(
         `SELECT m.*, c.slug AS category_slug FROM menu_items m JOIN categories c ON c.id = m.category_id
@@ -134,7 +150,7 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     res.json(items.map((row) => ({ ...formatItem(row), categorySlug: row.category_slug })));
   });
 
-  app.post('/api/orders', limit, (req, res) => {
+  router.post('/api/orders', limit, (req, res) => {
     const body = req.body ?? {};
     const customer_name = text(body.name, 'Name', { max: 80 });
     const customer_email = email(body.email);
@@ -161,7 +177,7 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     const total = [...lines.values()].reduce((sum, l) => sum + l.price_cents * l.qty, 0);
 
     const code = Array.from({ length: 6 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
-    db.exec('BEGIN');
+    db.exec('BEGIN IMMEDIATE');
     try {
       const { lastInsertRowid: orderId } = db
         .prepare(
@@ -182,14 +198,14 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
   });
 
   // Looking up an order needs both the code and the email used, so codes can't be enumerated.
-  app.post('/api/orders/lookup', limit, (req, res) => {
+  router.post('/api/orders/lookup', limit, (req, res) => {
     const code = text(req.body?.code, 'Order code', { max: 12 }).toUpperCase();
     const order = getOrder(db, code);
     if (!order || order.email !== email(req.body?.email)) throw new HttpError(404, 'No order found with that code and email');
     res.json(order);
   });
 
-  app.post('/api/messages', limit, (req, res) => {
+  router.post('/api/messages', limit, (req, res) => {
     const body = req.body ?? {};
     const topic = MESSAGE_TOPICS.includes(body.topic) ? body.topic : 'general';
     db.prepare('INSERT INTO messages (name, email, topic, event_date, message) VALUES (?, ?, ?, ?, ?)').run(
@@ -202,21 +218,25 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     res.status(201).json({ ok: true });
   });
 
-  app.post('/api/subscribe', limit, (req, res) => {
+  router.post('/api/subscribe', limit, (req, res) => {
     db.prepare('INSERT OR IGNORE INTO subscribers (email) VALUES (?)').run(email(req.body?.email));
     res.status(201).json({ ok: true });
   });
 
   // ---------- Admin API ----------
 
-  app.post('/api/admin/login', rateLimiter({ windowMs: 15 * 60_000, max: 10 }), (req, res) => {
+  router.post('/api/admin/login', rateLimiter({ windowMs: 15 * 60_000, max: 10 }), (req, res) => {
     const given = typeof req.body?.password === 'string' ? req.body.password : '';
     if (!timingSafeEqual(sha256(given), sha256(adminPassword))) throw new HttpError(401, 'Incorrect password');
     const token = randomBytes(32).toString('hex');
-    sessions.set(token, Date.now() + SESSION_TTL_MS);
+    db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
+    db.prepare('INSERT INTO sessions (token_hash, expires_at) VALUES (?, ?)').run(
+      sha256(token).toString('hex'),
+      Date.now() + SESSION_TTL_MS
+    );
     res.set(
       'Set-Cookie',
-      `admin_session=${token}; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=${SESSION_TTL_MS / 1000}` +
+      `admin_session=${token}; HttpOnly; SameSite=Strict; Path=${basePath}/api/admin; Max-Age=${SESSION_TTL_MS / 1000}` +
         (req.secure ? '; Secure' : '')
     );
     res.json({ ok: true });
@@ -224,22 +244,20 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
 
   const requireAdmin = (req, res, next) => {
     const token = parseCookies(req.headers.cookie).admin_session;
-    const expiry = token && sessions.get(token);
-    if (!expiry || expiry < Date.now()) {
-      if (token) sessions.delete(token);
-      throw new HttpError(401, 'Please sign in');
-    }
+    const session =
+      token && db.prepare('SELECT expires_at FROM sessions WHERE token_hash = ?').get(sha256(token).toString('hex'));
+    if (!session || session.expires_at < Date.now()) throw new HttpError(401, 'Please sign in');
     req.sessionToken = token;
     next();
   };
 
-  app.post('/api/admin/logout', requireAdmin, (req, res) => {
-    sessions.delete(req.sessionToken);
-    res.set('Set-Cookie', 'admin_session=; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=0');
+  router.post('/api/admin/logout', requireAdmin, (req, res) => {
+    db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(sha256(req.sessionToken).toString('hex'));
+    res.set('Set-Cookie', `admin_session=; HttpOnly; SameSite=Strict; Path=${basePath}/api/admin; Max-Age=0`);
     res.json({ ok: true });
   });
 
-  app.get('/api/admin/summary', requireAdmin, (req, res) => {
+  router.get('/api/admin/summary', requireAdmin, (req, res) => {
     const today = db
       .prepare(
         `SELECT COUNT(*) AS orders, COALESCE(SUM(total_cents), 0) AS revenue_cents
@@ -254,13 +272,13 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     res.json({ ...today, open, unread, subscribers });
   });
 
-  app.get('/api/admin/orders', requireAdmin, (req, res) => {
+  router.get('/api/admin/orders', requireAdmin, (req, res) => {
     const scope = req.query.scope === 'all' ? '' : `WHERE status IN ('received', 'preparing', 'ready')`;
     const codes = db.prepare(`SELECT code FROM orders ${scope} ORDER BY pickup_at, id LIMIT 200`).all();
     res.json(codes.map(({ code }) => getOrder(db, code)));
   });
 
-  app.patch('/api/admin/orders/:code', requireAdmin, (req, res) => {
+  router.patch('/api/admin/orders/:code', requireAdmin, (req, res) => {
     const { status } = req.body ?? {};
     if (!ORDER_STATUSES.includes(status)) throw new HttpError(400, 'Unknown status');
     const { changes } = db.prepare('UPDATE orders SET status = ? WHERE code = ?').run(status, req.params.code);
@@ -268,7 +286,7 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     res.json(getOrder(db, req.params.code));
   });
 
-  app.get('/api/admin/menu', requireAdmin, (req, res) => {
+  router.get('/api/admin/menu', requireAdmin, (req, res) => {
     res.json({
       categories: db.prepare('SELECT id, name FROM categories ORDER BY sort, id').all(),
       items: db.prepare('SELECT * FROM menu_items ORDER BY category_id, id').all().map(formatItem),
@@ -296,7 +314,7 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     return out;
   };
 
-  app.post('/api/admin/menu-items', requireAdmin, (req, res) => {
+  router.post('/api/admin/menu-items', requireAdmin, (req, res) => {
     const item = readItem(req.body ?? {}, false);
     const cols = Object.keys(item);
     const { lastInsertRowid } = db
@@ -305,7 +323,7 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     res.status(201).json(formatItem(db.prepare('SELECT * FROM menu_items WHERE id = ?').get(lastInsertRowid)));
   });
 
-  app.patch('/api/admin/menu-items/:id', requireAdmin, (req, res) => {
+  router.patch('/api/admin/menu-items/:id', requireAdmin, (req, res) => {
     const fields = readItem(req.body ?? {}, true);
     const cols = Object.keys(fields);
     if (!cols.length) throw new HttpError(400, 'Nothing to update');
@@ -316,17 +334,17 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
     res.json(formatItem(db.prepare('SELECT * FROM menu_items WHERE id = ?').get(req.params.id)));
   });
 
-  app.delete('/api/admin/menu-items/:id', requireAdmin, (req, res) => {
+  router.delete('/api/admin/menu-items/:id', requireAdmin, (req, res) => {
     const { changes } = db.prepare('DELETE FROM menu_items WHERE id = ?').run(req.params.id);
     if (!changes) throw new HttpError(404, 'Item not found');
     res.status(204).end();
   });
 
-  app.get('/api/admin/messages', requireAdmin, (req, res) => {
+  router.get('/api/admin/messages', requireAdmin, (req, res) => {
     res.json(db.prepare('SELECT * FROM messages ORDER BY is_read, created_at DESC LIMIT 200').all());
   });
 
-  app.patch('/api/admin/messages/:id', requireAdmin, (req, res) => {
+  router.patch('/api/admin/messages/:id', requireAdmin, (req, res) => {
     const { changes } = db
       .prepare('UPDATE messages SET is_read = ? WHERE id = ?')
       .run(req.body?.read ? 1 : 0, req.params.id);
@@ -336,9 +354,19 @@ export function createApp({ db, adminPassword, rateLimit = { windowMs: 10 * 60_0
 
   // ---------- Static site & errors ----------
 
-  app.use(express.static(fileURLToPath(new URL('./public', import.meta.url)), { extensions: ['html'] }));
+  router.use(express.static(fileURLToPath(new URL('./public', import.meta.url)), { extensions: ['html'] }));
 
-  app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+  router.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
+  // Pages use relative URLs, so "/cafe" must become "/cafe/" for them to resolve under the base path.
+  if (basePath) {
+    app.use((req, res, next) => {
+      const [path, query] = req.originalUrl.split(/\?(.*)/s);
+      if (path === basePath) return res.redirect(301, `${basePath}/${query ? `?${query}` : ''}`);
+      next();
+    });
+  }
+  app.use(basePath || '/', router);
 
   app.use((err, req, res, next) => {
     if (err.type === 'entity.parse.failed') err = new HttpError(400, 'Malformed JSON');
@@ -384,14 +412,42 @@ function getOrder(db, code) {
   };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+/** Opens the database and starts listening. Under Passenger (cPanel) the port is ignored and Passenger's socket is used. */
+/**
+ * Loads settings from a .env file next to server.js, for hosts where setting environment
+ * variables is awkward (e.g. cPanel). Variables already in the environment take precedence.
+ */
+export function loadEnvFile(path = fileURLToPath(new URL('./.env', import.meta.url))) {
+  if (!existsSync(path)) return;
+  for (const [key, value] of Object.entries(parseEnv(readFileSync(path, 'utf8')))) {
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+export function start() {
+  loadEnvFile();
   let adminPassword = process.env.ADMIN_PASSWORD;
   if (!adminPassword) {
     adminPassword = randomBytes(9).toString('base64url');
     console.warn(`ADMIN_PASSWORD not set — using a one-time password for this run: ${adminPassword}`);
   }
   const port = Number(process.env.PORT) || 3000;
-  createApp({ db: openDb(), adminPassword }).listen(port, () => {
-    console.log(`${CAFE.name} running at http://localhost:${port}`);
+  const db = openDb();
+  const basePath = normalizeBasePath(process.env.BASE_PATH);
+  const server = createApp({ db, adminPassword, basePath }).listen(port, () => {
+    console.log(`${CAFE.name} running at http://localhost:${port}${basePath}/`);
   });
+  // Shut down cleanly when the host stops the process (e.g. on deploys).
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, () => {
+      server.close(() => {
+        db.close();
+        process.exit(0);
+      });
+      setTimeout(() => process.exit(0), 5000).unref();
+    });
+  }
+  return server;
 }
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) start();

@@ -175,3 +175,28 @@ test('static pages are served without .html extension', async () => {
   }
   assert.equal((await req('/api/nope')).status, 404);
 });
+
+test('the site can be mounted under a base path', async () => {
+  const app = createApp({ db: openDb(':memory:'), adminPassword: PASSWORD, basePath: 'cafe/' });
+  const sub = app.listen(0);
+  await new Promise((r) => sub.once('listening', r));
+  const at = (path, opts) => fetch(`http://127.0.0.1:${sub.address().port}${path}`, { redirect: 'manual', ...opts });
+  try {
+    const bare = await at('/cafe?x=1');
+    assert.equal(bare.status, 301);
+    assert.equal(bare.headers.get('location'), '/cafe/?x=1');
+
+    for (const path of ['/cafe/', '/cafe/menu', '/cafe/admin', '/cafe/js/common.js']) {
+      assert.equal((await at(path)).status, 200, path);
+    }
+    assert.equal((await (await at('/cafe/api/menu')).json()).length, 6);
+    assert.equal((await at('/api/menu')).status, 404);
+
+    const login = await at('/cafe/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: PASSWORD }),
+    });
+    assert.match(login.headers.get('set-cookie'), /Path=\/cafe\/api\/admin;/);
+  } finally {
+    sub.close();
+  }
+});

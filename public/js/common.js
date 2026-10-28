@@ -11,8 +11,10 @@ export const esc = (s) =>
 
 export const money = (cents) => `$${(cents / 100).toFixed(2)}`;
 
+// URLs are relative so the site also works under a sub-path (e.g. example.com/cafe/).
+// Every page lives at the app root, so they resolve the same from any page.
 export async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(path.replace(/^\//, ''), {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
@@ -109,21 +111,23 @@ export const getInfo = () => (infoPromise ??= api('/api/info'));
 function renderHeader() {
   const el = document.getElementById('site-header');
   if (!el) return;
-  const path = location.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
-  const link = (href, label) => `<a href="${href}"${path === href ? ' aria-current="page"' : ''}>${label}</a>`;
+  const normalize = (p) => p.replace(/\.html$/, '').replace(/\/(index)?$/, '');
+  const here = normalize(location.pathname);
+  const link = (href, label) =>
+    `<a href="${href}"${normalize(new URL(href, location.href).pathname) === here ? ' aria-current="page"' : ''}>${label}</a>`;
   el.className = 'site-header';
   el.innerHTML = `
     <div class="wrap">
-      <a class="logo" href="/">${LOGO_SVG}<div><strong>Hearth &amp; Crumb</strong><span>Café &amp; Bakery</span></div></a>
+      <a class="logo" href="./">${LOGO_SVG}<div><strong>Hearth &amp; Crumb</strong><span>Café &amp; Bakery</span></div></a>
       <button class="nav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="nav">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
       <nav class="nav" id="nav">
-        ${link('/', 'Home')}
-        ${link('/menu', 'Menu')}
-        ${link('/contact', 'Cakes &amp; Catering')}
-        ${link('/order', 'Track Order')}
-        <a class="btn small accent" href="/menu#order">Order Ahead <span class="cart-count" data-count="0">0</span></a>
+        ${link('./', 'Home')}
+        ${link('menu', 'Menu')}
+        ${link('contact', 'Cakes &amp; Catering')}
+        ${link('order', 'Track Order')}
+        <a class="btn small accent" href="menu#order">Order Ahead <span class="cart-count" data-count="0">0</span></a>
       </nav>
     </div>`;
   const toggle = el.querySelector('.nav-toggle');
@@ -154,8 +158,8 @@ async function renderFooter() {
         </div>
         <div>
           <h3>Explore</h3>
-          <ul><li><a href="/menu">Menu</a></li><li><a href="/menu#order">Order for pickup</a></li>
-          <li><a href="/contact">Custom cakes</a></li><li><a href="/order">Track an order</a></li></ul>
+          <ul><li><a href="menu">Menu</a></li><li><a href="menu#order">Order for pickup</a></li>
+          <li><a href="contact">Custom cakes</a></li><li><a href="order">Track an order</a></li></ul>
         </div>
         <div>
           <h3>The Weekly Loaf</h3>
@@ -169,7 +173,7 @@ async function renderFooter() {
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getFullYear()} Hearth &amp; Crumb Café &amp; Bakery</span>
-        <a href="/admin">Staff login</a>
+        <a href="admin">Staff login</a>
       </div>
     </div>`;
   el.querySelector('.subscribe').addEventListener('submit', async (e) => {

@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Staff Dashboard — Hearth &amp; Crumb</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="admin-body">
   <main class="wrap" style="padding-bottom:64px">
     <section id="login-view" hidden style="max-width:420px;margin:12vh auto 0">
       <form class="card" id="login" novalidate>
-        <a class="logo" href="/" style="margin-bottom:20px" id="login-logo"></a>
+        <a class="logo" href="./" style="margin-bottom:20px" id="login-logo"></a>
         <h2>Staff sign in</h2>
         <div class="alert error" id="login-error" role="alert"></div>
         <div class="field">
@@ -28,9 +28,9 @@
 
     <section id="dash-view" hidden>
       <div class="admin-top">
-        <a class="logo" href="/" id="dash-logo"></a>
+        <a class="logo" href="./" id="dash-logo"></a>
         <div style="display:flex;gap:8px">
-          <a class="btn small secondary" href="/" target="_blank">View site</a>
+          <a class="btn small secondary" href="./" target="_blank">View site</a>
           <button class="btn small secondary" id="logout">Sign out</button>
         </div>
       </div>
@@ -91,6 +91,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="/js/admin.js"></script>
+  <script type="module" src="js/admin.js"></script>
 </body>
 </html>
