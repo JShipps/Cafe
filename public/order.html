@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <title>Track Your Order — Hearth &amp; Crumb</title>
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap" style="max-width:720px;padding-bottom:96px">
+    <div class="page-head">
+      <div class="eyebrow">Order status</div>
+      <h1>Track your order</h1>
+      <p class="lede">Enter the code from your confirmation and the email you ordered with.</p>
+    </div>
+
+    <form class="card" id="lookup" novalidate>
+      <div class="alert error" id="lookup-error" role="alert"></div>
+      <div class="row">
+        <div class="field">
+          <label for="code">Order code</label>
+          <input id="code" name="code" required maxlength="12" autocomplete="off" style="text-transform:uppercase;letter-spacing:.12em" placeholder="e.g. K7PQ2M">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required autocomplete="email">
+        </div>
+      </div>
+      <button class="btn accent" type="submit">Check status</button>
+    </form>
+
+    <section id="result" class="card" style="margin-top:24px" hidden aria-live="polite"></section>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script type="module">
+    import { api, esc, money, formatPickup } from '/js/common.js';
+
+    const form = document.getElementById('lookup');
+    const errorEl = document.getElementById('lookup-error');
+    const result = document.getElementById('result');
+    const STEPS = [['received', 'Received'], ['preparing', 'Preparing'], ['ready', 'Ready for pickup'], ['picked_up', 'Picked up']];
+    let timer;
+
+    function render(order) {
+      const idx = STEPS.findIndex(([s]) => s === order.status);
+      const tracker = order.status === 'cancelled'
+        ? '<div class="alert error">This order was cancelled. Please call us if this is unexpected.</div>'
+        : `<ol class="tracker">${STEPS.map(([, label], i) =>
+            `<li class="${i < idx || order.status === 'picked_up' ? 'done' : i === idx ? 'current' : ''}">${label}</li>`).join('')}</ol>`;
+      result.innerHTML = `
+        <div class="section-head" style="margin-bottom:0">
+          <div><div class="eyebrow">Order ${esc(order.code)}</div><h2 style="margin:0">Hi ${esc(order.name.split(' ')[0])}!</h2></div>
+          <div class="muted">Pickup ${esc(formatPickup(order.pickupAt))}</div>
+        </div>
+        ${tracker}
+        <table class="hours-table"><tbody>
+          ${order.items.map((i) => `<tr><td>${i.qty} × ${esc(i.name)}</td><td>${money(i.priceCents * i.qty)}</td></tr>`).join('')}
+          <tr><td><strong>Total due at pickup</strong></td><td><strong>${money(order.totalCents)}</strong></td></tr>
+        </tbody></table>
+        ${order.notes ? `<p class="muted" style="margin:16px 0 0">Notes: ${esc(order.notes)}</p>` : ''}`;
+      result.hidden = false;
+    }
+
+    async function lookup() {
+      errorEl.textContent = '';
+      try {
+        const order = await api('/api/orders/lookup', { method: 'POST', body: { code: form.code.value, email: form.email.value } });
+        render(order);
+        clearInterval(timer);
+        if (['received', 'preparing', 'ready'].includes(order.status)) timer = setInterval(refresh, 30_000);
+      } catch (err) {
+        result.hidden = true;
+        errorEl.textContent = err.message;
+      }
+    }
+
+    async function refresh() {
+      try {
+        render(await api('/api/orders/lookup', { method: 'POST', body: { code: form.code.value, email: form.email.value } }));
+      } catch { /* keep showing the last known status */ }
+    }
+
+    form.addEventListener('submit', (e) => { e.preventDefault(); lookup(); });
+
+    const params = new URLSearchParams(location.search);
+    if (params.get('code') && params.get('email')) {
+      form.code.value = params.get('code');
+      form.email.value = params.get('email');
+      history.replaceState(null, '', '/order');
+      lookup();
+    }
+  </script>
+</body>
+</html>

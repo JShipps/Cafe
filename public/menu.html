@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Menu &amp; Order Ahead — Hearth &amp; Crumb</title>
+  <meta name="description" content="Coffee, pastry, bread, lunch and cakes from Hearth & Crumb. Order ahead for pickup.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <div class="page-head">
+      <div class="eyebrow">Menu</div>
+      <h1>What's on the counter</h1>
+      <p class="lede">Add anything to your bag and pick it up warm. Orders need at least 20 minutes' notice; whole loaves and cakes are best ordered the day before.</p>
+    </div>
+
+    <div class="menu-layout">
+      <div>
+        <nav class="chips" id="chips" aria-label="Menu sections"></nav>
+        <div id="menu" aria-live="polite"><p class="muted">Loading the menu…</p></div>
+      </div>
+
+      <aside class="cart card" id="order" aria-labelledby="cart-title">
+        <div id="cart-view">
+          <h2 id="cart-title">Your order <span class="cart-count" data-count="0">0</span></h2>
+          <ul class="cart-lines" id="cart-lines"></ul>
+          <div class="cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
+
+          <form id="checkout" novalidate>
+            <div class="alert error" id="checkout-error" role="alert"></div>
+            <div class="field">
+              <label for="pickupAt">Pickup time</label>
+              <select id="pickupAt" name="pickupAt" required></select>
+            </div>
+            <div class="field">
+              <label for="name">Name</label>
+              <input id="name" name="name" autocomplete="name" required maxlength="80">
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" autocomplete="email" required>
+              <span class="hint">We'll use this to look up your order.</span>
+            </div>
+            <div class="field">
+              <label for="phone">Phone <span class="muted">(optional)</span></label>
+              <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="30">
+            </div>
+            <div class="field">
+              <label for="notes">Notes <span class="muted">(optional)</span></label>
+              <textarea id="notes" name="notes" maxlength="500" rows="2" style="min-height:64px" placeholder="Allergies, oat milk, sliced loaf…"></textarea>
+            </div>
+            <button class="btn accent block" type="submit" id="place-order">Place order</button>
+            <p class="muted center" style="font-size:.85rem;margin:12px 0 0">Pay at pickup — card or cash.</p>
+          </form>
+        </div>
+        <div id="confirm-view" class="confirmation" hidden></div>
+      </aside>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script type="module" src="/js/menu.js"></script>
+</body>
+</html>

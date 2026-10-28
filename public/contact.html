@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <title>Custom Cakes, Catering &amp; Contact — Hearth &amp; Crumb</title>
+  <meta name="description" content="Order a custom celebration cake, book catering, or get in touch with Hearth & Crumb Café & Bakery.">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <div class="page-head">
+      <div class="eyebrow">Cakes · Catering · Hello</div>
+      <h1>Let's make something</h1>
+      <p class="lede">Layer cakes for birthdays, dessert tables for weddings, pastry boxes for the Monday meeting — or just a question about our sourdough. We reply within one business day.</p>
+    </div>
+
+    <div class="split" style="align-items:start;padding-bottom:96px">
+      <form class="card" id="contact" novalidate>
+        <div class="alert error" id="contact-error" role="alert"></div>
+        <div class="row">
+          <div class="field">
+            <label for="name">Name</label>
+            <input id="name" name="name" required maxlength="80" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="topic">What's this about?</label>
+            <select id="topic" name="topic">
+              <option value="custom-cake">Custom cake</option>
+              <option value="catering">Catering</option>
+              <option value="general">General question</option>
+              <option value="wholesale">Wholesale</option>
+              <option value="feedback">Feedback</option>
+            </select>
+          </div>
+          <div class="field" id="date-field">
+            <label for="eventDate">Event date</label>
+            <input id="eventDate" name="eventDate" type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label for="message">Message</label>
+          <textarea id="message" name="message" required maxlength="2000" placeholder="Tell us about guest count, flavours, dietary needs…"></textarea>
+        </div>
+        <button class="btn accent" type="submit">Send message</button>
+      </form>
+
+      <div>
+        <div class="card" style="margin-bottom:24px">
+          <h3>Custom cakes</h3>
+          <p>6" serves 8–10 from $48 · 8" serves 14–18 from $68 · 10" serves 24–30 from $92. Tiered cakes quoted individually.</p>
+          <p class="muted" style="margin:0">Please allow 48 hours' notice (two weeks for tiered cakes).</p>
+        </div>
+        <div class="card" style="margin-bottom:24px">
+          <h3>Catering</h3>
+          <p style="margin:0">Pastry platters from $45 (serves 10), sandwich boards from $120 (serves 12), and coffee carafes for groups of any size. Delivery within 5 miles.</p>
+        </div>
+        <div class="card">
+          <h3>Find us</h3>
+          <p id="contact-info" style="margin:0"></p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script type="module">
+    import { api, esc, getInfo } from '/js/common.js';
+
+    const form = document.getElementById('contact');
+    const errorEl = document.getElementById('contact-error');
+    const dateField = document.getElementById('date-field');
+
+    const params = new URLSearchParams(location.search);
+    if (params.get('topic')) form.topic.value = params.get('topic');
+    form.eventDate.min = new Date().toISOString().slice(0, 10);
+
+    const syncDate = () => {
+      dateField.style.visibility = ['custom-cake', 'catering'].includes(form.topic.value) ? 'visible' : 'hidden';
+    };
+    form.topic.addEventListener('change', syncDate);
+    syncDate();
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        await api('/api/messages', { method: 'POST', body: Object.fromEntries(new FormData(form)) });
+        form.innerHTML = '<div class="alert success" style="margin:0">Thanks — your message is on its way to our team. We\'ll reply within one business day.</div>';
+      } catch (err) {
+        errorEl.textContent = err.message;
+        btn.disabled = false;
+      }
+    });
+
+    getInfo().then((info) => {
+      document.getElementById('contact-info').innerHTML =
+        `${esc(info.address)}<br><a href="tel:${esc(info.phone.replace(/[^\d+]/g, ''))}">${esc(info.phone)}</a><br><a href="mailto:${esc(info.email)}">${esc(info.email)}</a>`;
+    });
+  </script>
+</body>
+</html>

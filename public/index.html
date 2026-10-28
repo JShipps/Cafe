@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hearth &amp; Crumb — Café &amp; Bakery</title>
+  <meta name="description" content="Neighbourhood café and scratch bakery on Maple Street. Sourdough, croissants, specialty coffee and custom cakes. Order ahead for pickup.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <div class="eyebrow">Scratch bakery · Specialty coffee</div>
+          <h1>Baked before sunrise. <em>Brewed</em> to order.</h1>
+          <p class="lede">Hearth &amp; Crumb is your neighbourhood bakery on Maple Street — naturally leavened bread, butter-laminated pastry and coffee from roasters down the road.</p>
+          <div class="actions">
+            <a class="btn accent" href="/menu#order">Order ahead for pickup</a>
+            <a class="btn secondary" href="/menu">See the menu</a>
+          </div>
+        </div>
+        <div class="hero-art">
+          <svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 70c4-22 24-38 46-38s42 16 46 38c1 6-3 11-9 11H23c-6 0-10-5-9-11z"/>
+            <path d="M40 46c4 6 4 16 0 24M60 40c4 8 4 22 0 30M80 46c-4 6-4 16 0 24"/>
+            <path d="M28 92h64"/>
+          </svg>
+          <div class="hero-badge">
+            <span id="open-status"><span class="open-dot"></span>Checking hours…</span>
+            <strong id="today-hours">&nbsp;</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Fresh this week</div>
+            <h2>Neighbourhood favourites</h2>
+          </div>
+          <a class="btn secondary small" href="/menu">Full menu →</a>
+        </div>
+        <div class="grid-3" id="featured" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap split">
+        <div>
+          <div class="eyebrow">Our story</div>
+          <h2>Slow bread for a fast world</h2>
+          <p class="lede">We started with one wood-fired oven and a sourdough starter named Gus. Ten years on, Gus is still going — and so is our promise: everything is made by hand, from scratch, in the room behind the counter.</p>
+          <p>We buy flour from a family mill two hours north, eggs from Willow Creek Farm and dairy from Riverton Creamery. What we don't sell by close goes to the Riverton Community Pantry.</p>
+          <div class="stats">
+            <div><strong>36 hr</strong><span>sourdough ferment</span></div>
+            <div><strong>4 am</strong><span>first bake, daily</span></div>
+            <div><strong>100%</strong><span>made in-house</span></div>
+          </div>
+        </div>
+        <div class="story-art">
+          <blockquote>“The almond croissant is the best thing within fifty miles. I'd know — I've checked.”<cite>— Regular since 2016</cite></blockquote>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0">
+      <div class="wrap">
+        <div class="banner">
+          <div>
+            <div class="eyebrow">Celebrations</div>
+            <h2>Custom cakes &amp; catering</h2>
+            <p>Birthday layer cakes, wedding dessert tables, and morning pastry platters for the office. Give us 48 hours and we'll make it special.</p>
+          </div>
+          <a class="btn accent" href="/contact">Start an inquiry</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt" id="visit">
+      <div class="wrap split">
+        <div>
+          <div class="eyebrow">Come say hi</div>
+          <h2>Visit the bakery</h2>
+          <p class="lede" id="visit-address"></p>
+          <p>Street parking on Maple, bike racks out front, and a sunny back patio from May to October. Dogs welcome outside — we keep biscuits behind the counter.</p>
+          <a class="btn secondary" id="directions" target="_blank" rel="noopener">Get directions</a>
+        </div>
+        <div class="card">
+          <h3>Opening hours</h3>
+          <table class="hours-table"><tbody id="hours"></tbody></table>
+          <p class="muted" style="margin:16px 0 0;font-size:.9rem">Lunch served 11am – 3pm. Bread usually sells out by noon — order ahead to save a loaf.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script type="module">
+    import { api, esc, money, getInfo, hoursRows, isOpenNow, formatHour } from '/js/common.js';
+    import { categoryArt } from '/js/art.js';
+
+    getInfo().then((info) => {
+      document.getElementById('hours').innerHTML = hoursRows(info.hours);
+      document.getElementById('visit-address').textContent = info.address;
+      document.getElementById('directions').href =
+        'https://www.openstreetmap.org/search?query=' + encodeURIComponent(info.address);
+      const [o, c] = info.hours[new Date().getDay()];
+      const open = isOpenNow(info.hours);
+      document.getElementById('open-status').innerHTML =
+        `<span class="open-dot ${open ? 'open' : ''}"></span>${open ? 'Open now' : 'Closed now'}`;
+      document.getElementById('today-hours').textContent = `Today ${formatHour(o)} – ${formatHour(c)}`;
+    });
+
+    api('/api/menu/featured').then((items) => {
+      document.getElementById('featured').innerHTML = items.map((item) => {
+        const art = categoryArt(item.categorySlug);
+        return `<article class="feature-card">
+          <div class="swatch" style="background:${art.bg}">${art.svg}</div>
+          <h3>${esc(item.name)}</h3>
+          <p class="muted">${esc(item.description)}</p>
+          <div class="price">${money(item.priceCents)}</div>
+        </article>`;
+      }).join('');
+    }).catch(() => {
+      document.getElementById('featured').innerHTML = '<p class="muted">Our menu is taking a quick nap. Please refresh in a moment.</p>';
+    });
+  </script>
+</body>
+</html>

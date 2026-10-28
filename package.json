@@ -1,0 +1,21 @@
+{
+  "name": "hearth-and-crumb",
+  "version": "1.0.0",
+  "description": "Website for Hearth & Crumb Café and Bakery — menu, pickup ordering, inquiries and an admin dashboard.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node db.js --reset",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "express": "^4.22.3"
+  }
+}
